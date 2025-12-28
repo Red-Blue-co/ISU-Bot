@@ -1,0 +1,15 @@
+# 1. Dependency Directories
+node_modules/
+npm-debug.log
+
+# 2. Environment Variables (Sensitive!)
+.env
+
+# 3. WhatsApp Session Files (CRITICAL)
+# If you upload these, your session will break on other computers.
+.wwebjs_auth/
+.wwebjs_cache/
+
+# 4. System Files
+.DS_Store
+Thumbs.db
