@@ -1,32 +1,37 @@
-// src/commands/help.js
-
 module.exports = {
-    // 1. SETTINGS
-    name: "help",
-    description: "Lists all available commands and how to use them.",
-    usage: "!help",
-    dmOnly: true, // <--- TRUE: This command is ignored in groups.
+    name: 'help',
+    description: 'Lists all available commands',
+    usage: '!help',
+    
+    // ✅ This command itself is DM Only
+    dmOnly: true, 
 
-    // 2. LOGIC
-    async execute(client, msg, args, commands) {
-        let helpText = "🤖 *Bot Command List*\n\n";
+    execute: async (client, msg, args) => {
+        try {
+            if (!client.commands || client.commands.size === 0) {
+                await msg.reply("❌ Error: No commands found.");
+                return;
+            }
 
-        // Loop through all loaded commands to build the list dynamically
-        commands.forEach((cmd, name) => {
-            const desc = cmd.description || "No description provided.";
-            const usage = cmd.usage || `!${name}`;
-            
-            // Add a small tag if it's a DM-only command
-            const tag = cmd.dmOnly ? " 🔒 [DM Only]" : ""; 
-            
-            helpText += `🔹 *!${name}*${tag}\n`;
-            helpText += `   📝 ${desc}\n`;
-            helpText += `   ⌨️ ${usage}\n\n`;
-        });
+            let helpText = "🤖 *Bot Command Menu* 🤖\n\n";
 
-        helpText += "_Note: Commands marked [DM Only] will not work in groups._";
+            // Loop through all commands
+            client.commands.forEach((cmd) => {
+                const name = cmd.name.charAt(0).toUpperCase() + cmd.name.slice(1);
+                
+                // ✅ Check if the command is restricted to DMs
+                const tag = cmd.dmOnly ? " _[DM Only]_" : ""; 
+                
+                helpText += `🔹 *!${cmd.name}*${tag}\n   └ ${cmd.description || "No description"}\n`;
+            });
 
-        // Send the list
-        await msg.reply(helpText);
+            helpText += "\n💡 *Note:* Commands marked _[DM Only]_ will not work in groups.";
+
+            await msg.reply(helpText);
+
+        } catch (err) {
+            console.error("❌ Error in !help command:", err.message);
+            await msg.reply("❌ Failed to load help menu.");
+        }
     }
 };

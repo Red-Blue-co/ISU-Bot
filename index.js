@@ -1,5 +1,7 @@
 /**
- * * Features:
+ * ============================================================
+ * 🤖 WHATSAPP BOT - MAIN ENTRY POINT (PRODUCTION READY)
+ * ============================================================
  */
 
 const fs = require('fs');
@@ -7,58 +9,67 @@ const path = require('path');
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 
-// --- IMPORTS ---
-const config = require('./src/utils/config');
-const { handleCommand } = require('./src/controllers/commandHandler.controller');
-const onMessageSpamCheck = require('./src/controllers/message.controller');
+// --- LOCAL IMPORTS ---
+// Try/Catch configuration load to prevent immediate crash if missing
+let config;
+try {
+    config = require('./src/utils/config');
+} catch (e) {
+    console.error("❌ CRITICAL: 'src/utils/config.js' not found. Please create it.");
+    process.exit(1);
+}
+
+const onMessage = require('./src/controllers/message.controller'); 
 const { onGroupJoin } = require('./src/controllers/join.controller');
 
-// --- LOGGING SYSTEM ---
+// --- CONSTANTS ---
 const LOG_FILE = path.join(__dirname, 'bot.log');
+const SESSION_PATH = path.join(__dirname, '.wwebjs_auth'); // Explicit session path
 
-/**
- * Helper to log to both Console and File
- * @param {string} level - INFO, WARN, ERROR, CRITICAL
- * @param {string} message - The text to log
- */
+// ============================================================
+// 📋 LOGGING SYSTEM
+// ============================================================
 function log(level, message) {
-    const timestamp = new Date().toISOString().replace(/T/, ' ').replace(/\..+/, '');
+    const timestamp = new Date().toISOString().replace('T', ' ').split('.')[0];
     const logEntry = `[${timestamp}] [${level}] ${message}`;
-
-    // 1. Print to Console
+    
     console.log(logEntry);
-
-    // 2. Append to File
+    
     try {
         fs.appendFileSync(LOG_FILE, logEntry + '\n');
     } catch (err) {
-        console.error("❌ Failed to write to log file:", err);
+        console.error("❌ Failed to write to log file:", err.message);
     }
 }
 
-// --- GLOBAL ERROR HANDLING (CRASH PROTECTION) ---
+// ============================================================
+// 🛡️ GLOBAL ERROR HANDLING (Anti-Crash)
+// ============================================================
 process.on('uncaughtException', (err) => {
-    log('CRITICAL', `🔥 Uncaught Exception: ${err.message}`);
-    log('CRITICAL', err.stack);
-    // process.exit(1); // Optional: Restart if using PM2
+    log('CRITICAL', `🔥 Uncaught Exception: ${err.message}\n${err.stack}`);
+    // In production, we log it but keep running if possible
 });
 
-process.on('unhandledRejection', (reason, promise) => {
+process.on('unhandledRejection', (reason) => {
     log('CRITICAL', `🔥 Unhandled Rejection: ${reason}`);
 });
 
-
-// --- CLIENT SETUP ---
+// ============================================================
+// 🚀 CLIENT INITIALIZATION
+// ============================================================
 log('INFO', '🚀 Initializing Bot Client...');
 
 const client = new Client({
-    authStrategy: new LocalAuth(), // Saves session
+    // Explicit path prevents session loss during restarts
+    authStrategy: new LocalAuth({ dataPath: SESSION_PATH }), 
+    
+    // PRODUCTION PUPPETEER CONFIG
     puppeteer: {
         headless: true,
         args: [
-            '--no-sandbox',
+            '--no-sandbox', 
             '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
+            '--disable-dev-shm-usage', // Critical for low-RAM servers
             '--disable-accelerated-2d-canvas',
             '--no-first-run',
             '--no-zygote',
@@ -67,59 +78,102 @@ const client = new Client({
     }
 });
 
+// Prevent "MaxListenersExceededWarning" in complex bots
+client.setMaxListeners(0); 
 
-// --- EVENT LISTENERS ---
+// ============================================================
+// 📂 COMMAND HANDLER LOADING
+// ============================================================
+client.commands = new Map();
+const commandsPath = path.join(__dirname, 'src', 'commands');
+
+try {
+    if (fs.existsSync(commandsPath)) {
+        const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+        
+        for (const file of commandFiles) {
+            try {
+                const command = require(path.join(commandsPath, file));
+                if (command.name) {
+                    client.commands.set(command.name, command);
+                    log('INFO', `✅ Loaded Command: ${command.name}`);
+                }
+            } catch (cmdErr) {
+                log('ERROR', `❌ Error loading file ${file}: ${cmdErr.message}`);
+            }
+        }
+    } else {
+        log('WARN', '⚠️ "src/commands" folder not found. Creating it...');
+        fs.mkdirSync(commandsPath, { recursive: true });
+    }
+} catch (err) {
+    log('ERROR', `❌ Critical Command Loader Error: ${err.message}`);
+}
+
+// ============================================================
+// 📡 EVENT LISTENERS
+// ============================================================
 
 // 1. QR Code Generation
 client.on('qr', (qr) => {
-    log('INFO', '📡 QR Code received. Please scan to login.');
+    log('INFO', '📡 QR Code received. Scan with WhatsApp!');
     qrcode.generate(qr, { small: true });
 });
 
-// 2. Successful Login
+// 2. Client Ready
 client.on('ready', () => {
     log('INFO', '✅ Bot is ONLINE and Connected!');
-    log('INFO', `🛡️  Mode: Active | Prefix: ${config.bot.prefix}`);
+    log('INFO', `🛡️  Mode: Active | Prefix: "${config.bot.prefix}"`);
+    log('INFO', `👤 Admin Mode: ${config.adminOnly ? 'Enabled' : 'Disabled'}`);
 });
 
-// 3. Authentication Failure
-client.on('auth_failure', (msg) => {
-    log('ERROR', `❌ Authentication Failed: ${msg}`);
-});
-
-// 4. Disconnected (Network/Ban issue)
-client.on('disconnected', (reason) => {
-    log('WARN', `⚠️ Client Disconnected. Reason: ${reason}`);
-});
-
-// 5. Incoming Messages (Commands & Spam)
+// 3. Message Handler (Unified)
+// We use 'message_create' to allow Self-Bot commands (You controlling it)
 client.on('message_create', async (msg) => {
     try {
-        // A. Check for Commands (!help, !ban)
-        // If it starts with prefix, we assume it's a command attempt
-        if (msg.body.startsWith(config.bot.prefix)) {
-            await handleCommand(client, msg);
-        }
-        
-        // B. Run Spam Checker (Always run this, even on commands, to prevent command spam)
-        await onMessageSpamCheck(client, msg);
-
+        await onMessage(client, msg);
     } catch (err) {
-        log('ERROR', `Message Handler Failed: ${err.message}`);
+        log('ERROR', `❌ Message Handler Failed: ${err.message}`);
     }
 });
 
-// 6. Group Join (Detect Banned Users)
+// 4. Group Join Handler
 client.on('group_join', async (notification) => {
-    log('INFO', `👥 Group Join Event detected in chat: ${notification.chatId}`);
+    log('INFO', `👥 Group Join Event: ${notification.chatId}`);
     try {
         await onGroupJoin(client, notification);
     } catch (err) {
-        log('ERROR', `Join Handler Failed: ${err.message}`);
+        log('ERROR', `❌ Join Handler Failed: ${err.message}`);
     }
 });
 
+// 5. Disconnect Handler
+client.on('disconnected', (reason) => {
+    log('WARN', `🔌 Client disconnected: ${reason}`);
+    // Note: Use PM2 to auto-restart the process if this happens!
+});
 
-// --- START ---
+// ============================================================
+// 🛑 GRACEFUL SHUTDOWN (The "Clean Exit")
+// ============================================================
+// This prevents "Zombie" Chrome processes when you stop the bot.
+const shutdown = async (signal) => {
+    log('INFO', `🛑 Received ${signal}. Shutting down safely...`);
+    try {
+        await client.destroy();
+        log('INFO', '✅ Client destroyed. Exiting.');
+        process.exit(0);
+    } catch (error) {
+        console.error('❌ Error during shutdown:', error);
+        process.exit(1);
+    }
+};
+
+process.on('SIGINT', () => shutdown('SIGINT'));   // Ctrl+C
+process.on('SIGTERM', () => shutdown('SIGTERM')); // Docker/Server stop
+
+// ============================================================
+// 🏁 START THE BOT
+// ============================================================
 log('INFO', '⚙️  Starting Client...');
 client.initialize();

@@ -9,20 +9,32 @@ let config;
 
 try {
     const fileContent = fs.readFileSync(configPath, 'utf-8');
-    config = ini.parse(fileContent);
+    const parsedIni = ini.parse(fileContent);
 
-    // Conversions
-    config.spam.maxMessages = parseInt(config.spam.maxMessages);
-    config.spam.timeWindow = parseInt(config.spam.timeWindow);
-    config.spam.minDelay = parseInt(config.spam.minDelay);
-    config.spam.maxDelay = parseInt(config.spam.maxDelay);
-    config.bot.adminOnly = (config.bot.adminOnly === 'true');
+    // Create the clean config object the Bot expects
+    config = {
+        spam: {
+            maxMessages: parseInt(parsedIni.spam.maxMessages) || 6,
+            timeWindow: parseInt(parsedIni.spam.timeWindow) || 5000,
+            minDelay: parseInt(parsedIni.spam.minDelay) || 1000,
+            maxDelay: parseInt(parsedIni.spam.maxDelay) || 3000
+        },
+        bot: {
+            targetName: parsedIni.bot.targetName || '',
+            prefix: parsedIni.bot.prefix || '!'
+        },
+        
+        // 🛠️ FIX 1: Move 'adminOnly' to the top level so Controller can find it
+        // 🛠️ FIX 2: Check for boolean TRUE or string 'true'
+        adminOnly: (parsedIni.bot.adminOnly === true || parsedIni.bot.adminOnly === 'true')
+    };
 
 } catch (err) {
     console.error('⚠️ index.conf not found. Using defaults.');
     config = { 
         spam: { maxMessages: 6, timeWindow: 5000, minDelay: 1000, maxDelay: 3000 }, 
-        bot: { targetName: 'kim', prefix: '!', adminOnly: false } 
+        bot: { targetName: 'kim', prefix: '!' },
+        adminOnly: true // Default to safe
     };
 }
 

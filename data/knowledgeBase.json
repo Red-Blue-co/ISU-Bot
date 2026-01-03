@@ -1,0 +1,18 @@
+[
+  {
+    "keys": ["wifi", "internet", "connect", "password", "network"],
+    "answer": " *WiFi Access:* The network name is 'ISU-Student'. The password is your Student ID number."
+  },
+  {
+    "keys": ["exam", "schedule", "date sheet", "routine", "finals"],
+    "answer": "*Exam Update:* Final exams start on Dec 15th. Check the full schedule at: isu.edu/exams"
+  },
+  {
+    "keys": ["registra", "admin office", "location", "office"],
+    "answer": " *Registrar Office:* Located in Building A, Room 101. Open 9 AM - 4 PM."
+  },
+  {
+    "keys": ["contact", "email", "support", "help", "phone"],
+    "answer": "*Support:* Email us at help@isu.edu or call 555-0199."
+  }
+]

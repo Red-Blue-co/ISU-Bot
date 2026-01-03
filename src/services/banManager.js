@@ -1,8 +1,6 @@
 const fs = require('fs');
 const path = require('path');
 
-// 1. Resolve the absolute path to the data file
-// This ensures it works even if you run the bot from a different folder
 const DATA_FOLDER = path.join(__dirname, '../../data');
 const FILE_PATH = path.join(DATA_FOLDER, 'banned.json');
 

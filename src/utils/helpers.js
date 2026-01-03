@@ -1,7 +1,3 @@
-/**
- * src/utils/helpers.js
- * Common utility functions used across the bot.
- */
 
 /**
  * Pauses execution for a set amount of time.
