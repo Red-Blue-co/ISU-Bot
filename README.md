@@ -97,6 +97,6 @@ All contributions are reviewed professionally.
 <img src="https://img.shields.io/badge/Built%20with%20❤️%20for%20the-ISU%20Community-ef4444?style=flat-square" />
 
 <!-- FOOTER (MATCHING DARK NEON GRADIENT) -->
-<img src="https://capsule-render.vercel.app/api?type=waving&height=160&section=footer&animation=fadeIn&color=0:0f0505,25:1a0a0a,50:ef4444,75:3b82f6,100:000000&text=ISU%20BOT%20SIGNATURE&fontSize=26&fontColor=f8fafc" />
+<img src="https://capsule-render.vercel.app/api?type=waving&height=160&section=footer&animation=fadeIn&color=0:0f0505,25:1a0a0a,50:ef4444,75:3b82f6,100:000000&text=Red%20Blue%20Co%20Signature&fontSize=26&fontColor=f8fafc" />
 
 </div>
